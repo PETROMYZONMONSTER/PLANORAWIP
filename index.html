@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="./public/style.css" />
+  <title>Planora</title>
+</head>
+<body>
+
+<div class="main-division">
+  <div class="header">
+    menu
+  </div>
+  <div class="general-container">
+    <div class="controls">
+      <div class="actions-container">
+        <div class="header-actions">
+          menu 2
+        </div>
+        <div class="grid">
+          <canvas id="mapCanvas"></canvas>
+        </div>
+      </div>
+      <div class="context-menu">
+        lol
+      </div>
+    </div>
+  </div>
+  <div class="header">
+    menu
+  </div>
+</div>
+
+<script>
+
+  const canvas = document.getElementById('mapCanvas');
+  const ctx = canvas.getContext('2d');
+
+  cellsize = 30
+  scale = 1;
+  offsetx = 0;
+  offsety = 0;
+
+  function toScreenX(xTrue) {
+    return (xTrue + offsetx) * scale;
+  }
+  function toScreenY(yTrue) {
+    return (yTrue + offsety) * scale;
+  }
+  function toTrueX(xScreen) {
+    return (xScreen / scale) - offsetx;
+  }
+  function toTrueY(yScreen) {
+    return (yScreen / scale) - offsety;
+  }
+  function trueHeight() {
+    return canvas.clientHeight / scale;
+  }
+  function trueWidth() {
+    return canvas.clientWidth / scale;
+  }
+
+  function draw() {
+    if (canvas && ctx){
+      canvas.style.width='100%';
+      canvas.style.height='100%';
+    canvas.width = canvas.offsetWidth;
+    canvas.height = canvas.offsetHeight;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGrid();
+    }
+  }
+
+  document.oncontextmenu = function () {
+    return false;
+  }
+
+  canvas.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('mouseup', onMouseUp, false);
+  canvas.addEventListener('mouseout', onMouseUp, false);
+  canvas.addEventListener('mousemove', onMouseMove, false);
+  canvas.addEventListener('wheel', onMouseWheel, false);
+
+  let leftMouseDown = false;
+  let rightMouseDown = false;
+
+  function onMouseDown(event) {
+
+    if (event.button === 0) {
+      leftMouseDown = true;
+      rightMouseDown = false;
+    }
+    if (event.button === 2) {
+      rightMouseDown = true;
+      leftMouseDown = false;
+    }
+
+    cursorX = event.pageX;
+    cursorY = event.pageY;
+    prevCursorX = event.pageX;
+    prevCursorY = event.pageY;
+  }
+  function onMouseMove(event) {
+    cursorX = event.pageX;
+    cursorY = event.pageY;
+    const scaledX = toTrueX(cursorX);
+    const scaledY = toTrueY(cursorY);
+    const prevScaledX = toTrueX(prevCursorX);
+    const prevScaledY = toTrueY(prevCursorY);
+
+    if (rightMouseDown) {
+      offsetx += (cursorX - prevCursorX) / scale;
+      offsety += (cursorY - prevCursorY) / scale;
+      draw();
+    }
+    prevCursorX = cursorX;
+    prevCursorY = cursorY;
+  }
+  function onMouseUp() {
+    leftMouseDown = false;
+    rightMouseDown = false;
+  }
+  function onMouseWheel(event) {
+    const deltaY = event.deltaY;
+    const scaleAmount = -deltaY / 500;
+    scale = scale * (1 + scaleAmount);
+
+    const distX = event.pageX / canvas.clientWidth;
+    const distY = event.pageY / canvas.clientHeight;
+
+    const unitsZoomedX = trueWidth() * scaleAmount;
+    const unitsZoomedY = trueHeight() * scaleAmount;
+
+    const unitsAddLeft = unitsZoomedX * distX;
+    const unitsAddTop = unitsZoomedY * distY;
+
+    offsetx -= unitsAddLeft;
+    offsety -= unitsAddTop;
+
+    draw();
+  }
+
+  window.addEventListener("resize", (event) => {
+    draw();
+  });
+
+  function drawGrid() {
+    if (canvas && ctx){
+      ctx.strokeStyle = 'rgba(0,0,0,0.29)';
+      ctx.lineWidth = 0.5;
+      ctx.beginPath();
+      canvas.style.width='100%';
+      canvas.style.height='100%';
+      const width = canvas.offsetWidth;
+      const height = canvas.offsetHeight;
+      for (
+              let x = (offsetx % cellsize) * scale;
+              x <= width;
+              x += cellsize * scale
+      ) {
+        const source = x;
+        ctx.moveTo(source, 0);
+        ctx.lineTo(source, height);
+      }
+
+      for (
+              let y = (offsety % cellsize) * scale;
+              y <= height;
+              y += cellsize * scale
+      ) {
+        const destination = y;
+        ctx.moveTo(0, destination);
+        ctx.lineTo(width, destination);
+      }
+      ctx.stroke();
+    }
+  }
+
+  function updateJSON() {
+    document.getElementById('jsonOutput').textContent = JSON.stringify(walls, null, 2);
+  }
+
+  draw();
+
+</script>
+
+</body>
+</html>
