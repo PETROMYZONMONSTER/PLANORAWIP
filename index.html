@@ -10,30 +10,36 @@
 
 <div class="main-division">
   <div class="header">
-    menu
+    <button>Home</button>
+    <button>Elements</button>
+    <button>Options</button>
+    <button>View</button>
   </div>
   <div class="general-container">
     <div class="controls">
       <div class="actions-container">
         <div class="header-actions">
-          menu 2
+          <button>undo</button>
+          <button>redo</button>
+          <button onclick="saveWalls()" >save</button>
+          autosave <button>autosave</button>
         </div>
         <div class="grid">
           <canvas id="mapCanvas"></canvas>
         </div>
       </div>
       <div class="context-menu">
-        lol
+        insert menu
       </div>
     </div>
   </div>
   <div class="header">
-    menu
+    project name
+    site language
   </div>
 </div>
 
 <script>
-
   const canvas = document.getElementById('mapCanvas');
   const ctx = canvas.getContext('2d');
 
@@ -65,10 +71,10 @@
     if (canvas && ctx){
       canvas.style.width='100%';
       canvas.style.height='100%';
-    canvas.width = canvas.offsetWidth;
-    canvas.height = canvas.offsetHeight;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawGrid();
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawGrid();
     }
   }
 
@@ -84,31 +90,67 @@
 
   let leftMouseDown = false;
   let rightMouseDown = false;
+  let walls = [];
+  let isDrawing = false;
+  let startPoint = null;
+  let currentPoint = null;
+
+  function snapToGrid(x, y) {
+    const gridX = Math.round(x / cellsize) * cellsize;
+    const gridY = Math.round(y / cellsize) * cellsize;
+    return { x: gridX, y: gridY };
+  }
 
   function onMouseDown(event) {
 
     if (event.button === 0) {
       leftMouseDown = true;
       rightMouseDown = false;
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const scaledX = toTrueX(x);
+      const scaledY = toTrueY(y);
+      const snappedPoint = snapToGrid(scaledX, scaledY);
+
+      if (!isDrawing) {
+        isDrawing = true;
+        startPoint = snappedPoint;
+        currentPoint = snappedPoint;
+      } else {
+        walls.push({
+          from: startPoint,
+          to: snappedPoint
+        });
+        isDrawing = false;
+        startPoint = null;
+        currentPoint = null;
+        draw();
+      }
     }
     if (event.button === 2) {
       rightMouseDown = true;
       leftMouseDown = false;
     }
 
-    cursorX = event.pageX;
-    cursorY = event.pageY;
-    prevCursorX = event.pageX;
-    prevCursorY = event.pageY;
+    cursorX = event.clientX;
+    cursorY = event.clientY;
+    prevCursorX = event.clientX;
+    prevCursorY = event.clientY;
   }
+
   function onMouseMove(event) {
-    cursorX = event.pageX;
-    cursorY = event.pageY;
+    const rect = canvas.getBoundingClientRect();
+    const cursorX = event.clientX - rect.left;
+    const cursorY = event.clientY - rect.top;
     const scaledX = toTrueX(cursorX);
     const scaledY = toTrueY(cursorY);
     const prevScaledX = toTrueX(prevCursorX);
     const prevScaledY = toTrueY(prevCursorY);
-
+    if (isDrawing) {
+      currentPoint = snapToGrid(scaledX, scaledY);
+      draw();
+    }
     if (rightMouseDown) {
       offsetx += (cursorX - prevCursorX) / scale;
       offsety += (cursorY - prevCursorY) / scale;
@@ -147,7 +189,7 @@
 
   function drawGrid() {
     if (canvas && ctx){
-      ctx.strokeStyle = 'rgba(0,0,0,0.29)';
+      ctx.strokeStyle = '#00000049';
       ctx.lineWidth = 0.5;
       ctx.beginPath();
       canvas.style.width='100%';
@@ -174,15 +216,49 @@
         ctx.lineTo(width, destination);
       }
       ctx.stroke();
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 5;
+      walls.forEach(wall => {
+        ctx.beginPath();
+        ctx.moveTo(toScreenX(wall.from.x), toScreenY(wall.from.y));
+        ctx.lineTo(toScreenX(wall.to.x), toScreenY(wall.to.y));
+        ctx.stroke();
+      });
+
+      if (isDrawing && startPoint && currentPoint) {
+        ctx.strokeStyle = '#0000007B';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(toScreenX(startPoint.x), toScreenY(startPoint.y));
+        ctx.lineTo(toScreenX(currentPoint.x), toScreenY(currentPoint.y));
+        ctx.stroke();
+      }
     }
   }
 
   function updateJSON() {
     document.getElementById('jsonOutput').textContent = JSON.stringify(walls, null, 2);
   }
+  function saveWalls() {
+    const jsonString = JSON.stringify(walls, null, 2);
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    a.download = `Mapas/mapa_${timestamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
+  setInterval(() => {
+    if (walls.length > 0) {
+      saveWalls();
+    }
+  }, 5 * 60 * 1000);
   draw();
-
 </script>
 
 </body>
